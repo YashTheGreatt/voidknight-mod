@@ -1,12 +1,22 @@
 {
-  "required": true,
-  "minVersion": "0.8",
-  "package": "com.voidknight.mod.mixin",
-  "compatibilityLevel": "JAVA_21",
-  "client": [
-    "EntityRendererMixin"
+  "schemaVersion": 1,
+  "id": "voidknight",
+  "version": "1.0.0",
+  "name": "Void Knight Mod",
+  "description": "Clan Nametag System",
+  "authors": ["YashTheGreatt"],
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.voidknight.mod.VKMod"
+    ]
+  },
+  "mixins": [
+    "voidknight.mixins.json"
   ],
-  "injectors": {
-    "defaultRequire": 1
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": ">=1.21",
+    "java": ">=21"
   }
 }
