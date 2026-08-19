@@ -1,7 +1,10 @@
 package com.voidknight.mod.mixin;
 
-import com.voidknight.mod.DataManager;
-import com.voidknight.mod.MemberData;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -24,6 +27,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin<T extends Entity> {
 
@@ -33,12 +45,70 @@ public abstract class EntityRendererMixin<T extends Entity> {
     private static final Identifier BUILDER_ICON = Identifier.of("voidknight", "textures/gui/builder.png");
     private static final Identifier GRINDER_ICON = Identifier.of("voidknight", "textures/gui/grinder.png");
 
+    private static final Map<String, MemberInfo> MEMBERS = new HashMap<>();
+    private static boolean initialized = false;
+
+    private static synchronized void initSync() {
+        if (initialized) return;
+        initialized = true;
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 0, 30, TimeUnit.SECONDS);
+    }
+
+    private static void fetchData() {
+        try {
+            URL url = new URL("https://voidknight.onrender.com/api/tiers");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "VoidKnightMod/1.0");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+
+            if (conn.getResponseCode() == 200) {
+                InputStreamReader reader = new InputStreamReader(conn.getInputStream());
+                JsonElement root = JsonParser.parseReader(reader);
+                reader.close();
+
+                Gson gson = new Gson();
+                Map<String, MemberInfo> temp = new HashMap<>();
+
+                if (root.isJsonArray()) {
+                    JsonArray array = root.getAsJsonArray();
+                    for (JsonElement el : array) {
+                        MemberInfo m = gson.fromJson(el, MemberInfo.class);
+                        if (m != null && m.ign != null && !m.ign.isEmpty()) {
+                            temp.put(m.ign.toLowerCase().trim(), m);
+                        }
+                    }
+                } else if (root.isJsonObject()) {
+                    JsonObject obj = root.getAsJsonObject();
+                    for (String key : obj.keySet()) {
+                        MemberInfo m = gson.fromJson(obj.get(key), MemberInfo.class);
+                        temp.put(key.toLowerCase().trim(), m);
+                    }
+                }
+
+                synchronized (MEMBERS) {
+                    MEMBERS.clear();
+                    MEMBERS.putAll(temp);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
     @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true)
     private void onRenderLabel(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
+        initSync();
+
         if (!(entity instanceof PlayerEntity player)) return;
 
         String playerName = player.getNameForScoreboard();
-        MemberData member = DataManager.getMember(playerName);
+        MemberInfo member;
+        synchronized (MEMBERS) {
+            member = MEMBERS.get(playerName.toLowerCase().trim());
+        }
+
         if (member == null) return;
 
         MinecraftClient client = MinecraftClient.getInstance();
@@ -57,49 +127,42 @@ public abstract class EntityRendererMixin<T extends Entity> {
 
         Matrix4f matrix4f = matrices.peek().getPositionMatrix();
 
-        // 1. Text Setup: [IGN] [Tier]
-        String tierText = (member.getTier() != null && !member.getTier().isEmpty()) ? " §e[" + member.getTier() + "]" : "";
+        String tierText = (member.tier != null && !member.tier.isEmpty()) ? " §e[" + member.tier + "]" : "";
         String fullText = "§f" + playerName + tierText;
 
         float textWidth = textRenderer.getWidth(fullText);
         float iconSize = 9.0F;
         float spacing = 2.5F;
 
-        // 2. Logic: PvP Icon (Based on pvpType) vs Role Icon (Builder/Grinder)
         Identifier pvpIcon = null;
-        if (member.getPvpType() != null) {
-            if (member.getPvpType().toLowerCase().contains("sword")) pvpIcon = SWORD_ICON;
-            else if (member.getPvpType().toLowerCase().contains("crystal")) pvpIcon = CRYSTAL_ICON;
+        if (member.pvpType != null) {
+            if (member.pvpType.toLowerCase().contains("sword")) pvpIcon = SWORD_ICON;
+            else if (member.pvpType.toLowerCase().contains("crystal")) pvpIcon = CRYSTAL_ICON;
         }
 
         Identifier roleIcon = null;
-        if (member.getRole() != null) {
-            if (member.getRole().toLowerCase().contains("builder")) roleIcon = BUILDER_ICON;
-            else if (member.getRole().toLowerCase().contains("grinder")) roleIcon = GRINDER_ICON;
+        if (member.role != null) {
+            if (member.role.toLowerCase().contains("builder")) roleIcon = BUILDER_ICON;
+            else if (member.role.toLowerCase().contains("grinder")) roleIcon = GRINDER_ICON;
         }
 
-        // 3. Draw Sequence
         float totalWidth = iconSize + spacing + textWidth;
         if (pvpIcon != null) totalWidth += spacing + iconSize;
         if (roleIcon != null) totalWidth += spacing + iconSize;
 
         float currentX = -totalWidth / 2.0F;
 
-        // Draw VK Icon
         drawIcon(matrix4f, VK_ICON, currentX, -1.0F, iconSize);
         currentX += iconSize + spacing;
 
-        // Draw Name + Tier
         textRenderer.draw(Text.literal(fullText), currentX, 0, 0xFFFFFF, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.SEE_THROUGH, 0x40000000, light);
         currentX += textWidth + spacing;
 
-        // Draw PvP Icon
         if (pvpIcon != null) {
             drawIcon(matrix4f, pvpIcon, currentX, -1.0F, iconSize);
             currentX += iconSize + spacing;
         }
 
-        // Draw Role Icon
         if (roleIcon != null) {
             drawIcon(matrix4f, roleIcon, currentX, -1.0F, iconSize);
         }
@@ -120,5 +183,12 @@ public abstract class EntityRendererMixin<T extends Entity> {
         buffer.vertex(matrix4f, x, y, 0.0F).texture(0.0F, 0.0F);
         BufferRenderer.drawWithGlobalProgram(buffer.end());
         RenderSystem.disableBlend();
+    }
+
+    private static class MemberInfo {
+        String ign;
+        String pvpType;
+        String tier;
+        String role;
     }
 }
