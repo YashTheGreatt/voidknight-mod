@@ -29,12 +29,15 @@ public abstract class EntityRendererMixin {
     private static synchronized void initSync() {
         if (initialized) return;
         initialized = true;
-        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "VoidKnight-Sync");
-            t.setDaemon(true);
-            return t;
-        });
-        scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 0, 10, TimeUnit.SECONDS);
+        try {
+            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "VoidKnight-Sync");
+                t.setDaemon(true);
+                return t;
+            });
+            scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 0, 10, TimeUnit.SECONDS);
+        } catch (Throwable ignored) {
+        }
     }
 
     private static void fetchData() {
@@ -52,7 +55,7 @@ public abstract class EntityRendererMixin {
                     Gson gson = new Gson();
                     ConcurrentHashMap<String, MemberInfo> temp = new ConcurrentHashMap<>();
 
-                    if (root.isJsonObject()) {
+                    if (root != null && root.isJsonObject()) {
                         JsonObject obj = root.getAsJsonObject();
                         for (String key : obj.keySet()) {
                             MemberInfo m = gson.fromJson(obj.get(key), MemberInfo.class);
@@ -67,7 +70,7 @@ public abstract class EntityRendererMixin {
                     }
                 }
             }
-        } catch (Exception ignored) {
+        } catch (Throwable ignored) {
         }
     }
 
@@ -88,28 +91,34 @@ public abstract class EntityRendererMixin {
 
         if (player == null || MEMBERS.isEmpty()) return originalText;
 
-        String cleanIGN = player.getGameProfile().getName();
-        if (cleanIGN == null || cleanIGN.isEmpty()) return originalText;
+        try {
+            String cleanIGN = player.getGameProfile().getName();
+            if (cleanIGN == null || cleanIGN.isEmpty()) return originalText;
 
-        MemberInfo member = MEMBERS.get(cleanIGN.toLowerCase().trim());
-        if (member == null) return originalText;
+            MemberInfo member = MEMBERS.get(cleanIGN.toLowerCase().trim());
+            if (member == null) return originalText;
 
-        String vkIconChar = "\uE001 ";
-        String modeIconChar = "";
+            String vkIconChar = "\uE001 ";
+            String modeIconChar = "";
 
-        String modeVal = member.mode != null ? member.mode : member.role;
-        if (modeVal != null) {
-            String m = modeVal.toLowerCase();
-            if (m.contains("cpvp") || m.contains("crystal")) modeIconChar = " \uE002";
-            else if (m.contains("spvp") || m.contains("sword")) modeIconChar = " \uE003";
+            String modeVal = member.mode != null ? member.mode : member.role;
+            if (modeVal != null) {
+                String m = modeVal.toLowerCase();
+                if (m.contains("cpvp") || m.contains("crystal")) modeIconChar = " \uE002";
+                else if (m.contains("spvp") || m.contains("sword")) modeIconChar = " \uE003";
+                else if (m.contains("build")) modeIconChar = " \uE004";
+                else if (m.contains("grind")) modeIconChar = " \uE005";
+            }
+
+            String tierText = (member.tier != null && !member.tier.isEmpty()) ? " §e[" + member.tier + "]" : "";
+
+            MutableText newText = Text.literal(vkIconChar);
+            newText.append(originalText);
+            newText.append(Text.literal(tierText + modeIconChar));
+            return newText;
+        } catch (Throwable ignored) {
+            return originalText;
         }
-
-        String tierText = (member.tier != null && !member.tier.isEmpty()) ? " §e[" + member.tier + "]" : "";
-
-        MutableText newText = Text.literal(vkIconChar);
-        newText.append(originalText);
-        newText.append(Text.literal(tierText + modeIconChar));
-        return newText;
     }
 
     private static class MemberInfo {
