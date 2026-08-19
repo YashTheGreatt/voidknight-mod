@@ -55,7 +55,7 @@ public abstract class EntityRendererMixin<T extends Entity> {
             t.setDaemon(true);
             return t;
         });
-        scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 0, 30, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 2, 30, TimeUnit.SECONDS);
     }
 
     private static void fetchData() {
@@ -100,13 +100,15 @@ public abstract class EntityRendererMixin<T extends Entity> {
 
     @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true)
     private void onRenderLabel(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
-        initSync();
+        if (!initialized) {
+            initSync();
+        }
 
         try {
             if (!(entity instanceof PlayerEntity player)) return;
 
             String playerName = player.getNameForScoreboard();
-            if (playerName == null) return;
+            if (playerName == null || MEMBERS.isEmpty()) return;
 
             MemberInfo member = MEMBERS.get(playerName.toLowerCase().trim());
             if (member == null) return;
