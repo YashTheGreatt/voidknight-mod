@@ -34,7 +34,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-@Mixin(EntityRenderer.class)
+@Mixin(value = EntityRenderer.class, priority = 10000)
 public abstract class EntityRendererMixin<T extends Entity> {
 
     private static final Identifier VK_ICON = Identifier.of("voidknight", "textures/gui/vk.png");
@@ -91,12 +91,12 @@ public abstract class EntityRendererMixin<T extends Entity> {
         }
     }
 
-    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0, priority = 10000)
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
     private void onRenderLabel121(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
         renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
     }
 
-    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0, priority = 10000)
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
     private void onRenderLabelFallback(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
     }
@@ -138,7 +138,6 @@ public abstract class EntityRendererMixin<T extends Entity> {
             float iconSize = 9.0F;
             float spacing = 2.5F;
 
-            // Matches "mode" from Render API (CPvP / Sword / Builder / Grinder)
             Identifier pvpIcon = null;
             String modeVal = member.mode != null ? member.mode : member.role;
             if (modeVal != null) {
@@ -154,15 +153,12 @@ public abstract class EntityRendererMixin<T extends Entity> {
 
             float currentX = -totalWidth / 2.0F;
 
-            // VK Logo
             drawIcon(matrix4f, VK_ICON, currentX, -1.0F, iconSize);
             currentX += iconSize + spacing;
 
-            // Name + Tier
             textRenderer.draw(Text.literal(fullText), currentX, 0, 0xFFFFFF, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.SEE_THROUGH, 0x40000000, light);
             currentX += textWidth + spacing;
 
-            // PvP Mode Icon
             if (pvpIcon != null) {
                 drawIcon(matrix4f, pvpIcon, currentX, -1.0F, iconSize);
             }
