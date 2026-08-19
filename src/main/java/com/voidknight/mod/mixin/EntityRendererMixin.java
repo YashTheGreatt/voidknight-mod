@@ -121,7 +121,8 @@ public abstract class EntityRendererMixin<T extends Entity> {
         if (distanceSq > 4096.0) return;
 
         matrices.push();
-        matrices.translate(0.0F, entity.getNameLabelHeight() + 0.5F, 0.0F);
+        // 1.21.x compatible height positioning
+        matrices.translate(0.0F, player.getStandingEyeHeight() + 0.5F, 0.0F);
         matrices.multiply(client.getEntityRenderDispatcher().getRotation());
         matrices.scale(-0.025F, -0.025F, 0.025F);
 
