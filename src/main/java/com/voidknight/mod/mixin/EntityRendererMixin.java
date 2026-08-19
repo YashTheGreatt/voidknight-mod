@@ -1,7 +1,6 @@
 package com.voidknight.mod.mixin;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -55,7 +54,7 @@ public abstract class EntityRendererMixin<T extends Entity> {
             t.setDaemon(true);
             return t;
         });
-        scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 0, 15, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 0, 10, TimeUnit.SECONDS);
     }
 
     private static void fetchData() {
@@ -73,15 +72,7 @@ public abstract class EntityRendererMixin<T extends Entity> {
                     Gson gson = new Gson();
                     ConcurrentHashMap<String, MemberInfo> temp = new ConcurrentHashMap<>();
 
-                    if (root.isJsonArray()) {
-                        JsonArray array = root.getAsJsonArray();
-                        for (JsonElement el : array) {
-                            MemberInfo m = gson.fromJson(el, MemberInfo.class);
-                            if (m != null && m.ign != null && !m.ign.isEmpty()) {
-                                temp.put(m.ign.toLowerCase().trim(), m);
-                            }
-                        }
-                    } else if (root.isJsonObject()) {
+                    if (root.isJsonObject()) {
                         JsonObject obj = root.getAsJsonObject();
                         for (String key : obj.keySet()) {
                             MemberInfo m = gson.fromJson(obj.get(key), MemberInfo.class);
@@ -90,25 +81,27 @@ public abstract class EntityRendererMixin<T extends Entity> {
                             }
                         }
                     }
-                    MEMBERS.clear();
-                    MEMBERS.putAll(temp);
+                    if (!temp.isEmpty()) {
+                        MEMBERS.clear();
+                        MEMBERS.putAll(temp);
+                    }
                 }
             }
         } catch (Exception ignored) {
         }
     }
 
-    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0, priority = 10000)
     private void onRenderLabel121(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        renderCustomNametag(entity, text, matrices, vertexConsumers, light, ci);
+        renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
     }
 
-    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0, priority = 10000)
     private void onRenderLabelFallback(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
-        renderCustomNametag(entity, text, matrices, vertexConsumers, light, ci);
+        renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
     }
 
-    private void renderCustomNametag(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
+    private void renderCustomNametag(T entity, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         if (!initialized) {
             initSync();
         }
@@ -116,7 +109,6 @@ public abstract class EntityRendererMixin<T extends Entity> {
         try {
             if (!(entity instanceof PlayerEntity player)) return;
 
-            // Pure IGN fetch karein bina scoreboard rank prefix ke
             String cleanIGN = player.getGameProfile().getName();
             if (cleanIGN == null || cleanIGN.isEmpty() || MEMBERS.isEmpty()) return;
 
@@ -146,15 +138,15 @@ public abstract class EntityRendererMixin<T extends Entity> {
             float iconSize = 9.0F;
             float spacing = 2.5F;
 
-            // Role / PvP Check (Supports both CPvP, SPvP, crystal, sword)
+            // Matches "mode" from Render API (CPvP / Sword / Builder / Grinder)
             Identifier pvpIcon = null;
-            String roleVal = (member.role != null ? member.role : member.pvpType);
-            if (roleVal != null) {
-                String r = roleVal.toLowerCase();
-                if (r.contains("crystal") || r.contains("cpvp")) pvpIcon = CRYSTAL_ICON;
-                else if (r.contains("sword") || r.contains("spvp")) pvpIcon = SWORD_ICON;
-                else if (r.contains("builder")) pvpIcon = BUILDER_ICON;
-                else if (r.contains("grinder")) pvpIcon = GRINDER_ICON;
+            String modeVal = member.mode != null ? member.mode : member.role;
+            if (modeVal != null) {
+                String m = modeVal.toLowerCase();
+                if (m.contains("cpvp") || m.contains("crystal")) pvpIcon = CRYSTAL_ICON;
+                else if (m.contains("spvp") || m.contains("sword")) pvpIcon = SWORD_ICON;
+                else if (m.contains("builder")) pvpIcon = BUILDER_ICON;
+                else if (m.contains("grinder")) pvpIcon = GRINDER_ICON;
             }
 
             float totalWidth = iconSize + spacing + textWidth;
@@ -162,15 +154,15 @@ public abstract class EntityRendererMixin<T extends Entity> {
 
             float currentX = -totalWidth / 2.0F;
 
-            // VoidKnight Logo Render
+            // VK Logo
             drawIcon(matrix4f, VK_ICON, currentX, -1.0F, iconSize);
             currentX += iconSize + spacing;
 
-            // Name + Tier Render
+            // Name + Tier
             textRenderer.draw(Text.literal(fullText), currentX, 0, 0xFFFFFF, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.SEE_THROUGH, 0x40000000, light);
             currentX += textWidth + spacing;
 
-            // PvP / Tier Icon Render
+            // PvP Mode Icon
             if (pvpIcon != null) {
                 drawIcon(matrix4f, pvpIcon, currentX, -1.0F, iconSize);
             }
@@ -199,9 +191,9 @@ public abstract class EntityRendererMixin<T extends Entity> {
     }
 
     private static class MemberInfo {
-        String ign;
-        String pvpType;
+        String mode;
         String tier;
+        String type;
         String role;
     }
 }
