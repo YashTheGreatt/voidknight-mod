@@ -4,9 +4,9 @@
   "package": "com.voidknight.mod.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "EntityRendererMixin"
   ],
   "client": [
+    "EntityRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1
