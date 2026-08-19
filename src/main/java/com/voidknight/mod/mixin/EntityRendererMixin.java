@@ -30,8 +30,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -45,13 +44,17 @@ public abstract class EntityRendererMixin<T extends Entity> {
     private static final Identifier BUILDER_ICON = Identifier.of("voidknight", "textures/gui/builder.png");
     private static final Identifier GRINDER_ICON = Identifier.of("voidknight", "textures/gui/grinder.png");
 
-    private static final Map<String, MemberInfo> MEMBERS = new HashMap<>();
+    private static final ConcurrentHashMap<String, MemberInfo> MEMBERS = new ConcurrentHashMap<>();
     private static boolean initialized = false;
 
     private static synchronized void initSync() {
         if (initialized) return;
         initialized = true;
-        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "VoidKnight-Sync");
+            t.setDaemon(true);
+            return t;
+        });
         scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 0, 30, TimeUnit.SECONDS);
     }
 
@@ -61,34 +64,32 @@ public abstract class EntityRendererMixin<T extends Entity> {
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "VoidKnightMod/1.0");
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(4000);
 
             if (conn.getResponseCode() == 200) {
-                InputStreamReader reader = new InputStreamReader(conn.getInputStream());
-                JsonElement root = JsonParser.parseReader(reader);
-                reader.close();
+                try (InputStreamReader reader = new InputStreamReader(conn.getInputStream())) {
+                    JsonElement root = JsonParser.parseReader(reader);
+                    Gson gson = new Gson();
+                    ConcurrentHashMap<String, MemberInfo> temp = new ConcurrentHashMap<>();
 
-                Gson gson = new Gson();
-                Map<String, MemberInfo> temp = new HashMap<>();
-
-                if (root.isJsonArray()) {
-                    JsonArray array = root.getAsJsonArray();
-                    for (JsonElement el : array) {
-                        MemberInfo m = gson.fromJson(el, MemberInfo.class);
-                        if (m != null && m.ign != null && !m.ign.isEmpty()) {
-                            temp.put(m.ign.toLowerCase().trim(), m);
+                    if (root.isJsonArray()) {
+                        JsonArray array = root.getAsJsonArray();
+                        for (JsonElement el : array) {
+                            MemberInfo m = gson.fromJson(el, MemberInfo.class);
+                            if (m != null && m.ign != null && !m.ign.isEmpty()) {
+                                temp.put(m.ign.toLowerCase().trim(), m);
+                            }
+                        }
+                    } else if (root.isJsonObject()) {
+                        JsonObject obj = root.getAsJsonObject();
+                        for (String key : obj.keySet()) {
+                            MemberInfo m = gson.fromJson(obj.get(key), MemberInfo.class);
+                            if (m != null) {
+                                temp.put(key.toLowerCase().trim(), m);
+                            }
                         }
                     }
-                } else if (root.isJsonObject()) {
-                    JsonObject obj = root.getAsJsonObject();
-                    for (String key : obj.keySet()) {
-                        MemberInfo m = gson.fromJson(obj.get(key), MemberInfo.class);
-                        temp.put(key.toLowerCase().trim(), m);
-                    }
-                }
-
-                synchronized (MEMBERS) {
                     MEMBERS.clear();
                     MEMBERS.putAll(temp);
                 }
@@ -98,17 +99,15 @@ public abstract class EntityRendererMixin<T extends Entity> {
     }
 
     @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true)
-    private void onRenderLabel(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
+    private void onRenderLabel(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         initSync();
 
         if (!(entity instanceof PlayerEntity player)) return;
 
         String playerName = player.getNameForScoreboard();
-        MemberInfo member;
-        synchronized (MEMBERS) {
-            member = MEMBERS.get(playerName.toLowerCase().trim());
-        }
+        if (playerName == null) return;
 
+        MemberInfo member = MEMBERS.get(playerName.toLowerCase().trim());
         if (member == null) return;
 
         MinecraftClient client = MinecraftClient.getInstance();
@@ -191,5 +190,4 @@ public abstract class EntityRendererMixin<T extends Entity> {
         String tier;
         String role;
     }
-                         }
-                                 
+}
