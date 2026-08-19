@@ -24,19 +24,19 @@ import java.util.concurrent.TimeUnit;
 public abstract class EntityRendererMixin {
 
     private static final ConcurrentHashMap<String, MemberInfo> MEMBERS = new ConcurrentHashMap<>();
-    private static boolean initialized = false;
+    private static volatile boolean syncStarted = false;
 
-    private static synchronized void initSync() {
-        if (initialized) return;
-        initialized = true;
-        try {
+    private static void startSync() {
+        if (syncStarted) return;
+        synchronized (EntityRendererMixin.class) {
+            if (syncStarted) return;
+            syncStarted = true;
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "VoidKnight-Sync");
+                Thread t = new Thread(r, "VK-Async-Sync");
                 t.setDaemon(true);
                 return t;
             });
             scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 0, 10, TimeUnit.SECONDS);
-        } catch (Throwable ignored) {
         }
     }
 
@@ -46,8 +46,8 @@ public abstract class EntityRendererMixin {
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "VoidKnightMod/1.0");
-            conn.setConnectTimeout(4000);
-            conn.setReadTimeout(4000);
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
 
             if (conn.getResponseCode() == 200) {
                 try (InputStreamReader reader = new InputStreamReader(conn.getInputStream())) {
@@ -85,8 +85,8 @@ public abstract class EntityRendererMixin {
     }
 
     private Text buildCustomText(Text originalText, AbstractClientPlayerEntity player) {
-        if (!initialized) {
-            initSync();
+        if (!syncStarted) {
+            startSync();
         }
 
         if (player == null || MEMBERS.isEmpty()) return originalText;
