@@ -64,8 +64,8 @@ public abstract class EntityRendererMixin<T extends Entity> {
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "VoidKnightMod/1.0");
-            conn.setConnectTimeout(4000);
-            conn.setReadTimeout(4000);
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
 
             if (conn.getResponseCode() == 200) {
                 try (InputStreamReader reader = new InputStreamReader(conn.getInputStream())) {
@@ -102,86 +102,92 @@ public abstract class EntityRendererMixin<T extends Entity> {
     private void onRenderLabel(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         initSync();
 
-        if (!(entity instanceof PlayerEntity player)) return;
+        try {
+            if (!(entity instanceof PlayerEntity player)) return;
 
-        String playerName = player.getNameForScoreboard();
-        if (playerName == null) return;
+            String playerName = player.getNameForScoreboard();
+            if (playerName == null) return;
 
-        MemberInfo member = MEMBERS.get(playerName.toLowerCase().trim());
-        if (member == null) return;
+            MemberInfo member = MEMBERS.get(playerName.toLowerCase().trim());
+            if (member == null) return;
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        TextRenderer textRenderer = client.textRenderer;
-        if (textRenderer == null) return;
+            MinecraftClient client = MinecraftClient.getInstance();
+            TextRenderer textRenderer = client.textRenderer;
+            if (textRenderer == null) return;
 
-        ci.cancel();
+            ci.cancel();
 
-        double distanceSq = client.getEntityRenderDispatcher().getSquaredDistanceToCamera(entity);
-        if (distanceSq > 4096.0) return;
+            double distanceSq = client.getEntityRenderDispatcher().getSquaredDistanceToCamera(entity);
+            if (distanceSq > 4096.0) return;
 
-        matrices.push();
-        matrices.translate(0.0F, player.getStandingEyeHeight() + 0.5F, 0.0F);
-        matrices.multiply(client.getEntityRenderDispatcher().getRotation());
-        matrices.scale(-0.025F, -0.025F, 0.025F);
+            matrices.push();
+            matrices.translate(0.0F, player.getStandingEyeHeight() + 0.5F, 0.0F);
+            matrices.multiply(client.getEntityRenderDispatcher().getRotation());
+            matrices.scale(-0.025F, -0.025F, 0.025F);
 
-        Matrix4f matrix4f = matrices.peek().getPositionMatrix();
+            Matrix4f matrix4f = matrices.peek().getPositionMatrix();
 
-        String tierText = (member.tier != null && !member.tier.isEmpty()) ? " §e[" + member.tier + "]" : "";
-        String fullText = "§f" + playerName + tierText;
+            String tierText = (member.tier != null && !member.tier.isEmpty()) ? " §e[" + member.tier + "]" : "";
+            String fullText = "§f" + playerName + tierText;
 
-        float textWidth = textRenderer.getWidth(fullText);
-        float iconSize = 9.0F;
-        float spacing = 2.5F;
+            float textWidth = textRenderer.getWidth(fullText);
+            float iconSize = 9.0F;
+            float spacing = 2.5F;
 
-        Identifier pvpIcon = null;
-        if (member.pvpType != null) {
-            if (member.pvpType.toLowerCase().contains("sword")) pvpIcon = SWORD_ICON;
-            else if (member.pvpType.toLowerCase().contains("crystal")) pvpIcon = CRYSTAL_ICON;
-        }
+            Identifier pvpIcon = null;
+            if (member.pvpType != null) {
+                if (member.pvpType.toLowerCase().contains("sword")) pvpIcon = SWORD_ICON;
+                else if (member.pvpType.toLowerCase().contains("crystal")) pvpIcon = CRYSTAL_ICON;
+            }
 
-        Identifier roleIcon = null;
-        if (member.role != null) {
-            if (member.role.toLowerCase().contains("builder")) roleIcon = BUILDER_ICON;
-            else if (member.role.toLowerCase().contains("grinder")) roleIcon = GRINDER_ICON;
-        }
+            Identifier roleIcon = null;
+            if (member.role != null) {
+                if (member.role.toLowerCase().contains("builder")) roleIcon = BUILDER_ICON;
+                else if (member.role.toLowerCase().contains("grinder")) roleIcon = GRINDER_ICON;
+            }
 
-        float totalWidth = iconSize + spacing + textWidth;
-        if (pvpIcon != null) totalWidth += spacing + iconSize;
-        if (roleIcon != null) totalWidth += spacing + iconSize;
+            float totalWidth = iconSize + spacing + textWidth;
+            if (pvpIcon != null) totalWidth += spacing + iconSize;
+            if (roleIcon != null) totalWidth += spacing + iconSize;
 
-        float currentX = -totalWidth / 2.0F;
+            float currentX = -totalWidth / 2.0F;
 
-        drawIcon(matrix4f, VK_ICON, currentX, -1.0F, iconSize);
-        currentX += iconSize + spacing;
-
-        textRenderer.draw(Text.literal(fullText), currentX, 0, 0xFFFFFF, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.SEE_THROUGH, 0x40000000, light);
-        currentX += textWidth + spacing;
-
-        if (pvpIcon != null) {
-            drawIcon(matrix4f, pvpIcon, currentX, -1.0F, iconSize);
+            drawIcon(matrix4f, VK_ICON, currentX, -1.0F, iconSize);
             currentX += iconSize + spacing;
-        }
 
-        if (roleIcon != null) {
-            drawIcon(matrix4f, roleIcon, currentX, -1.0F, iconSize);
-        }
+            textRenderer.draw(Text.literal(fullText), currentX, 0, 0xFFFFFF, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.SEE_THROUGH, 0x40000000, light);
+            currentX += textWidth + spacing;
 
-        matrices.pop();
+            if (pvpIcon != null) {
+                drawIcon(matrix4f, pvpIcon, currentX, -1.0F, iconSize);
+                currentX += iconSize + spacing;
+            }
+
+            if (roleIcon != null) {
+                drawIcon(matrix4f, roleIcon, currentX, -1.0F, iconSize);
+            }
+
+            matrices.pop();
+        } catch (Exception ignored) {
+        }
     }
 
     private void drawIcon(Matrix4f matrix4f, Identifier icon, float x, float y, float size) {
-        RenderSystem.setShader(GameRenderer::getPositionTexProgram);
-        RenderSystem.setShaderTexture(0, icon);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
-        buffer.vertex(matrix4f, x, y + size, 0.0F).texture(0.0F, 1.0F);
-        buffer.vertex(matrix4f, x + size, y + size, 0.0F).texture(1.0F, 1.0F);
-        buffer.vertex(matrix4f, x + size, y, 0.0F).texture(1.0F, 0.0F);
-        buffer.vertex(matrix4f, x, y, 0.0F).texture(0.0F, 0.0F);
-        BufferRenderer.drawWithGlobalProgram(buffer.end());
-        RenderSystem.disableBlend();
+        try {
+            RenderSystem.setShader(GameRenderer::getPositionTexProgram);
+            RenderSystem.setShaderTexture(0, icon);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            Tessellator tessellator = Tessellator.getInstance();
+            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
+            buffer.vertex(matrix4f, x, y + size, 0.0F).texture(0.0F, 1.0F);
+            buffer.vertex(matrix4f, x + size, y + size, 0.0F).texture(1.0F, 1.0F);
+            buffer.vertex(matrix4f, x + size, y, 0.0F).texture(1.0F, 0.0F);
+            buffer.vertex(matrix4f, x, y, 0.0F).texture(0.0F, 0.0F);
+            BufferRenderer.drawWithGlobalProgram(buffer.end());
+            RenderSystem.disableBlend();
+        } catch (Exception ignored) {
+        }
     }
 
     private static class MemberInfo {
