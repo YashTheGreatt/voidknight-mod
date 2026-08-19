@@ -4,27 +4,13 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.entity.EntityRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.render.entity.PlayerEntityRenderer;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -34,14 +20,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-@Mixin(value = EntityRenderer.class, priority = 10000)
-public abstract class EntityRendererMixin<T extends Entity> {
-
-    private static final Identifier VK_ICON = Identifier.of("voidknight", "textures/gui/vk.png");
-    private static final Identifier CRYSTAL_ICON = Identifier.of("voidknight", "textures/gui/crystal.png");
-    private static final Identifier SWORD_ICON = Identifier.of("voidknight", "textures/gui/sword.png");
-    private static final Identifier BUILDER_ICON = Identifier.of("voidknight", "textures/gui/builder.png");
-    private static final Identifier GRINDER_ICON = Identifier.of("voidknight", "textures/gui/grinder.png");
+@Mixin(PlayerEntityRenderer.class)
+public abstract class EntityRendererMixin {
 
     private static final ConcurrentHashMap<String, MemberInfo> MEMBERS = new ConcurrentHashMap<>();
     private static boolean initialized = false;
@@ -91,99 +71,45 @@ public abstract class EntityRendererMixin<T extends Entity> {
         }
     }
 
-    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
-    private void onRenderLabel121(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
+    @ModifyVariable(method = "renderLabelIfPresent(Lnet/minecraft/client/network/AbstractClientPlayerEntity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V", at = @At("HEAD"), argsOnly = true, require = 0)
+    private Text modifyNametagText121(Text originalText, AbstractClientPlayerEntity player) {
+        return buildCustomText(originalText, player);
     }
 
-    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
-    private void onRenderLabelFallback(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
-        renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
+    @ModifyVariable(method = "renderLabelIfPresent(Lnet/minecraft/client/network/AbstractClientPlayerEntity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V", at = @At("HEAD"), argsOnly = true, require = 0)
+    private Text modifyNametagTextFallback(Text originalText, AbstractClientPlayerEntity player) {
+        return buildCustomText(originalText, player);
     }
 
-    private void renderCustomNametag(T entity, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
+    private Text buildCustomText(Text originalText, AbstractClientPlayerEntity player) {
         if (!initialized) {
             initSync();
         }
 
-        try {
-            if (!(entity instanceof PlayerEntity player)) return;
+        if (player == null || MEMBERS.isEmpty()) return originalText;
 
-            String cleanIGN = player.getGameProfile().getName();
-            if (cleanIGN == null || cleanIGN.isEmpty() || MEMBERS.isEmpty()) return;
+        String cleanIGN = player.getGameProfile().getName();
+        if (cleanIGN == null || cleanIGN.isEmpty()) return originalText;
 
-            MemberInfo member = MEMBERS.get(cleanIGN.toLowerCase().trim());
-            if (member == null) return;
+        MemberInfo member = MEMBERS.get(cleanIGN.toLowerCase().trim());
+        if (member == null) return originalText;
 
-            MinecraftClient client = MinecraftClient.getInstance();
-            TextRenderer textRenderer = client.textRenderer;
-            if (textRenderer == null) return;
+        String vkIconChar = "\uE001 ";
+        String modeIconChar = "";
 
-            ci.cancel();
-
-            double distanceSq = client.getEntityRenderDispatcher().getSquaredDistanceToCamera(entity);
-            if (distanceSq > 4096.0) return;
-
-            matrices.push();
-            matrices.translate(0.0F, player.getStandingEyeHeight() + 0.5F, 0.0F);
-            matrices.multiply(client.getEntityRenderDispatcher().getRotation());
-            matrices.scale(-0.025F, -0.025F, 0.025F);
-
-            Matrix4f matrix4f = matrices.peek().getPositionMatrix();
-
-            String tierText = (member.tier != null && !member.tier.isEmpty()) ? " §e[" + member.tier + "]" : "";
-            String fullText = "§f" + cleanIGN + tierText;
-
-            float textWidth = textRenderer.getWidth(fullText);
-            float iconSize = 9.0F;
-            float spacing = 2.5F;
-
-            Identifier pvpIcon = null;
-            String modeVal = member.mode != null ? member.mode : member.role;
-            if (modeVal != null) {
-                String m = modeVal.toLowerCase();
-                if (m.contains("cpvp") || m.contains("crystal")) pvpIcon = CRYSTAL_ICON;
-                else if (m.contains("spvp") || m.contains("sword")) pvpIcon = SWORD_ICON;
-                else if (m.contains("builder")) pvpIcon = BUILDER_ICON;
-                else if (m.contains("grinder")) pvpIcon = GRINDER_ICON;
-            }
-
-            float totalWidth = iconSize + spacing + textWidth;
-            if (pvpIcon != null) totalWidth += spacing + iconSize;
-
-            float currentX = -totalWidth / 2.0F;
-
-            drawIcon(matrix4f, VK_ICON, currentX, -1.0F, iconSize);
-            currentX += iconSize + spacing;
-
-            textRenderer.draw(Text.literal(fullText), currentX, 0, 0xFFFFFF, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.SEE_THROUGH, 0x40000000, light);
-            currentX += textWidth + spacing;
-
-            if (pvpIcon != null) {
-                drawIcon(matrix4f, pvpIcon, currentX, -1.0F, iconSize);
-            }
-
-            matrices.pop();
-        } catch (Exception ignored) {
+        String modeVal = member.mode != null ? member.mode : member.role;
+        if (modeVal != null) {
+            String m = modeVal.toLowerCase();
+            if (m.contains("cpvp") || m.contains("crystal")) modeIconChar = " \uE002";
+            else if (m.contains("spvp") || m.contains("sword")) modeIconChar = " \uE003";
         }
-    }
 
-    private void drawIcon(Matrix4f matrix4f, Identifier icon, float x, float y, float size) {
-        try {
-            RenderSystem.setShader(GameRenderer::getPositionTexProgram);
-            RenderSystem.setShaderTexture(0, icon);
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
-            buffer.vertex(matrix4f, x, y + size, 0.0F).texture(0.0F, 1.0F);
-            buffer.vertex(matrix4f, x + size, y + size, 0.0F).texture(1.0F, 1.0F);
-            buffer.vertex(matrix4f, x + size, y, 0.0F).texture(1.0F, 0.0F);
-            buffer.vertex(matrix4f, x, y, 0.0F).texture(0.0F, 0.0F);
-            BufferRenderer.drawWithGlobalProgram(buffer.end());
-            RenderSystem.disableBlend();
-        } catch (Exception ignored) {
-        }
+        String tierText = (member.tier != null && !member.tier.isEmpty()) ? " §e[" + member.tier + "]" : "";
+
+        MutableText newText = Text.literal(vkIconChar);
+        newText.append(originalText);
+        newText.append(Text.literal(tierText + modeIconChar));
+        return newText;
     }
 
     private static class MemberInfo {
