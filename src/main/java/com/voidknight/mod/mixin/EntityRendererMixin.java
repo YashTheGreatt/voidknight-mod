@@ -57,6 +57,7 @@ public abstract class EntityRendererMixin<T extends Entity> {
 
         Matrix4f matrix4f = matrices.peek().getPositionMatrix();
 
+        // 1. Text Setup: [IGN] [Tier]
         String tierText = (member.getTier() != null && !member.getTier().isEmpty()) ? " §e[" + member.getTier() + "]" : "";
         String fullText = "§f" + playerName + tierText;
 
@@ -64,10 +65,11 @@ public abstract class EntityRendererMixin<T extends Entity> {
         float iconSize = 9.0F;
         float spacing = 2.5F;
 
+        // 2. Logic: PvP Icon (Based on pvpType) vs Role Icon (Builder/Grinder)
         Identifier pvpIcon = null;
         if (member.getPvpType() != null) {
             if (member.getPvpType().toLowerCase().contains("sword")) pvpIcon = SWORD_ICON;
-            else pvpIcon = CRYSTAL_ICON;
+            else if (member.getPvpType().toLowerCase().contains("crystal")) pvpIcon = CRYSTAL_ICON;
         }
 
         Identifier roleIcon = null;
@@ -76,38 +78,28 @@ public abstract class EntityRendererMixin<T extends Entity> {
             else if (member.getRole().toLowerCase().contains("grinder")) roleIcon = GRINDER_ICON;
         }
 
+        // 3. Draw Sequence
         float totalWidth = iconSize + spacing + textWidth;
         if (pvpIcon != null) totalWidth += spacing + iconSize;
         if (roleIcon != null) totalWidth += spacing + iconSize;
 
         float currentX = -totalWidth / 2.0F;
 
-        // 1. VK Clan Logo Render
+        // Draw VK Icon
         drawIcon(matrix4f, VK_ICON, currentX, -1.0F, iconSize);
         currentX += iconSize + spacing;
 
-        // 2. Nametag Render with parsed color codes
-        textRenderer.draw(
-            Text.literal(fullText),
-            currentX,
-            0,
-            0xFFFFFF,
-            false,
-            matrix4f,
-            vertexConsumers,
-            TextRenderer.TextLayerType.SEE_THROUGH,
-            0x40000000,
-            light
-        );
+        // Draw Name + Tier
+        textRenderer.draw(Text.literal(fullText), currentX, 0, 0xFFFFFF, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.SEE_THROUGH, 0x40000000, light);
         currentX += textWidth + spacing;
 
-        // 3. PvP Type Icon Render (Crystal / Sword)
+        // Draw PvP Icon
         if (pvpIcon != null) {
             drawIcon(matrix4f, pvpIcon, currentX, -1.0F, iconSize);
             currentX += iconSize + spacing;
         }
 
-        // 4. Role Icon Render (Builder / Grinder)
+        // Draw Role Icon
         if (roleIcon != null) {
             drawIcon(matrix4f, roleIcon, currentX, -1.0F, iconSize);
         }
@@ -120,7 +112,6 @@ public abstract class EntityRendererMixin<T extends Entity> {
         RenderSystem.setShaderTexture(0, icon);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-
         Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
         buffer.vertex(matrix4f, x, y + size, 0.0F).texture(0.0F, 1.0F);
