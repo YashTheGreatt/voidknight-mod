@@ -55,7 +55,7 @@ public abstract class EntityRendererMixin<T extends Entity> {
             t.setDaemon(true);
             return t;
         });
-        scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 2, 30, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 1, 30, TimeUnit.SECONDS);
     }
 
     private static void fetchData() {
@@ -64,8 +64,8 @@ public abstract class EntityRendererMixin<T extends Entity> {
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "VoidKnightMod/1.0");
-            conn.setConnectTimeout(3000);
-            conn.setReadTimeout(3000);
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(4000);
 
             if (conn.getResponseCode() == 200) {
                 try (InputStreamReader reader = new InputStreamReader(conn.getInputStream())) {
@@ -98,8 +98,19 @@ public abstract class EntityRendererMixin<T extends Entity> {
         }
     }
 
-    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true)
-    private void onRenderLabel(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
+    // Minecraft 1.20 - 1.20.6 / Intermediate builds with tickDelta
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
+    private void onRenderLabelLegacy(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
+        renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
+    }
+
+    // Minecraft 1.21.x / Modern builds without tickDelta
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
+    private void onRenderLabelModern(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
+        renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
+    }
+
+    private void renderCustomNametag(T entity, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         if (!initialized) {
             initSync();
         }
