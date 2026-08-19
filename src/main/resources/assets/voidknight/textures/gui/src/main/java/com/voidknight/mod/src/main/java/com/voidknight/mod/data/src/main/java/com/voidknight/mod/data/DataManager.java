@@ -20,7 +20,6 @@ public class DataManager {
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     public static void startAutoSync() {
-        // Har 30 second me automatically naya data fetch karega
         scheduler.scheduleAtFixedRate(DataManager::fetchMembers, 0, 30, TimeUnit.SECONDS);
     }
 
@@ -39,27 +38,27 @@ public class DataManager {
                 reader.close();
 
                 Gson gson = new Gson();
-                Map<String, MemberData> newMap = new HashMap<>();
+                Map<String, MemberData> tempMap = new HashMap<>();
 
                 if (jsonElement.isJsonArray()) {
                     JsonArray array = jsonElement.getAsJsonArray();
                     for (JsonElement elem : array) {
                         MemberData member = gson.fromJson(elem, MemberData.class);
-                        if (member != null && member.getIgn() != null) {
-                            newMap.put(member.getIgn().toLowerCase().trim(), member);
+                        if (member != null && !member.getIgn().isEmpty()) {
+                            tempMap.put(member.getIgn().toLowerCase().trim(), member);
                         }
                     }
                 } else if (jsonElement.isJsonObject()) {
                     JsonObject obj = jsonElement.getAsJsonObject();
                     for (String key : obj.keySet()) {
                         MemberData member = gson.fromJson(obj.get(key), MemberData.class);
-                        newMap.put(key.toLowerCase().trim(), member);
+                        tempMap.put(key.toLowerCase().trim(), member);
                     }
                 }
 
                 synchronized (members) {
                     members.clear();
-                    members.putAll(newMap);
+                    members.putAll(tempMap);
                 }
             }
         } catch (Exception ignored) {
