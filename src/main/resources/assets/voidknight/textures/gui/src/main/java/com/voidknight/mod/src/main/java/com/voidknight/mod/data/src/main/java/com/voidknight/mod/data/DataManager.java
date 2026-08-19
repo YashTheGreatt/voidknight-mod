@@ -1,38 +1,75 @@
-package com.voidknight.mod.data;
+package com.voidknight.mod;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.io.InputStreamReader;
-import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class DataManager {
-    public static final ConcurrentHashMap<String, MemberData> MEMBERS = new ConcurrentHashMap<>();
     private static final String API_URL = "https://voidknight.onrender.com/api/tiers";
-    private static final Gson GSON = new Gson();
+    private static final Map<String, MemberData> members = new HashMap<>();
+    private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    public static void fetchClanData() {
+    public static void startAutoSync() {
+        // Har 30 second me automatically naya data fetch karega
+        scheduler.scheduleAtFixedRate(DataManager::fetchMembers, 0, 30, TimeUnit.SECONDS);
+    }
+
+    public static void fetchMembers() {
         try {
             URL url = new URL(API_URL);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "VoidKnightMod/1.0");
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(5000);
 
             if (conn.getResponseCode() == 200) {
                 InputStreamReader reader = new InputStreamReader(conn.getInputStream());
-                Type type = new TypeToken<ConcurrentHashMap<String, MemberData>>() {}.getType();
-                ConcurrentHashMap<String, MemberData> freshData = GSON.fromJson(reader, type);
+                JsonElement jsonElement = JsonParser.parseReader(reader);
                 reader.close();
 
-                if (freshData != null) {
-                    MEMBERS.clear();
-                    MEMBERS.putAll(freshData);
+                Gson gson = new Gson();
+                Map<String, MemberData> newMap = new HashMap<>();
+
+                if (jsonElement.isJsonArray()) {
+                    JsonArray array = jsonElement.getAsJsonArray();
+                    for (JsonElement elem : array) {
+                        MemberData member = gson.fromJson(elem, MemberData.class);
+                        if (member != null && member.getIgn() != null) {
+                            newMap.put(member.getIgn().toLowerCase().trim(), member);
+                        }
+                    }
+                } else if (jsonElement.isJsonObject()) {
+                    JsonObject obj = jsonElement.getAsJsonObject();
+                    for (String key : obj.keySet()) {
+                        MemberData member = gson.fromJson(obj.get(key), MemberData.class);
+                        newMap.put(key.toLowerCase().trim(), member);
+                    }
+                }
+
+                synchronized (members) {
+                    members.clear();
+                    members.putAll(newMap);
                 }
             }
         } catch (Exception ignored) {
+        }
+    }
+
+    public static MemberData getMember(String ign) {
+        if (ign == null) return null;
+        synchronized (members) {
+            return members.get(ign.toLowerCase().trim());
         }
     }
 }
