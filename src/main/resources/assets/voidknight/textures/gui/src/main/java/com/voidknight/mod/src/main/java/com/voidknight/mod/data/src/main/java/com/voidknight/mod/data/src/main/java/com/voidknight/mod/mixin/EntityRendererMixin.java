@@ -1,45 +1,64 @@
 package com.voidknight.mod.mixin;
 
-import com.voidknight.mod.data.DataManager;
-import com.voidknight.mod.data.MemberData;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
+import com.voidknight.mod.DataManager;
+import com.voidknight.mod.MemberData;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
+import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin<T extends Entity> {
 
-    @ModifyVariable(
-        method = "renderLabelIfPresent",
-        at = @At("HEAD"),
-        argsOnly = true
-    )
-    protected Text modifyNametag(Text originalText, T entity, MatrixStack matrices, 
-                                 VertexConsumerProvider vertexConsumers, int light) {
-        if (entity instanceof AbstractClientPlayerEntity player) {
-            String ign = player.getGameProfile().getName();
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true)
+    private void onRenderLabel(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
+        if (!(entity instanceof PlayerEntity player)) return;
 
-            if (DataManager.MEMBERS.containsKey(ign)) {
-                MemberData data = DataManager.MEMBERS.get(ign);
-                String tag = "§8[§4VK§8] §7| §f" + ign;
+        String playerName = player.getNameForScoreboard();
+        MemberData member = DataManager.getMember(playerName);
+        if (member == null) return;
 
-                if ("CPvP".equalsIgnoreCase(data.mode)) {
-                    return Text.literal(tag + " §7| §d✦ §e" + data.tier);
-                } else if ("Sword".equalsIgnoreCase(data.mode)) {
-                    return Text.literal(tag + " §7| §c⚔ §e" + data.tier);
-                } else if ("Grinder".equalsIgnoreCase(data.mode)) {
-                    return Text.literal(tag + " §7| §a⛏ Grinder");
-                } else if ("Builder".equalsIgnoreCase(data.mode)) {
-                    return Text.literal(tag + " §7| §6🏗 Builder");
-                }
-            }
-        }
-        return originalText;
+        MinecraftClient client = MinecraftClient.getInstance();
+        TextRenderer textRenderer = client.textRenderer;
+        if (textRenderer == null) return;
+
+        ci.cancel();
+
+        double distanceSq = client.getEntityRenderDispatcher().getSquaredDistanceToCamera(entity);
+        if (distanceSq > 4096.0) return;
+
+        matrices.push();
+        matrices.translate(0.0F, entity.getNameLabelHeight() + 0.5F, 0.0F);
+        matrices.multiply(client.getEntityRenderDispatcher().getRotation());
+        matrices.scale(-0.025F, -0.025F, 0.025F);
+
+        Matrix4f matrix4f = matrices.peek().getPositionMatrix();
+
+        String displayName = "§5[VK] §f" + playerName;
+        float x = -textRenderer.getWidth(displayName) / 2.0F;
+
+        textRenderer.draw(
+            displayName,
+            x,
+            0,
+            0xFFFFFF,
+            false,
+            matrix4f,
+            vertexConsumers,
+            TextRenderer.TextLayerType.SEE_THROUGH,
+            0x40000000,
+            light
+        );
+
+        matrices.pop();
     }
 }
