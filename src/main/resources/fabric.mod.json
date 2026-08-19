@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "voidknight",
+  "version": "1.0.0",
+  "name": "Void Knight Clan Mod",
+  "description": "Custom nametags and clan icon renderer for Void Knights",
+  "authors": [
+    "YashTheGreatt"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/voidknight/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.voidknight.mod.VKMod"
+    ]
+  },
+  "mixins": [
+    "voidknight.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.0",
+    "minecraft": "*",
+    "java": ">=17"
+  }
+}
