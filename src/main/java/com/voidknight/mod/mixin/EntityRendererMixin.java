@@ -55,7 +55,7 @@ public abstract class EntityRendererMixin<T extends Entity> {
             t.setDaemon(true);
             return t;
         });
-        scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 1, 30, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(EntityRendererMixin::fetchData, 0, 15, TimeUnit.SECONDS);
     }
 
     private static void fetchData() {
@@ -98,19 +98,17 @@ public abstract class EntityRendererMixin<T extends Entity> {
         }
     }
 
-    // 1.21.1 Standard Signature (with tickDelta)
     @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
     private void onRenderLabel121(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
+        renderCustomNametag(entity, text, matrices, vertexConsumers, light, ci);
     }
 
-    // Modern / Snapshot Signature Fallback (without tickDelta)
     @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
     private void onRenderLabelFallback(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
-        renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
+        renderCustomNametag(entity, text, matrices, vertexConsumers, light, ci);
     }
 
-    private void renderCustomNametag(T entity, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
+    private void renderCustomNametag(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         if (!initialized) {
             initSync();
         }
@@ -118,10 +116,11 @@ public abstract class EntityRendererMixin<T extends Entity> {
         try {
             if (!(entity instanceof PlayerEntity player)) return;
 
-            String playerName = player.getNameForScoreboard();
-            if (playerName == null || MEMBERS.isEmpty()) return;
+            // Pure IGN fetch karein bina scoreboard rank prefix ke
+            String cleanIGN = player.getGameProfile().getName();
+            if (cleanIGN == null || cleanIGN.isEmpty() || MEMBERS.isEmpty()) return;
 
-            MemberInfo member = MEMBERS.get(playerName.toLowerCase().trim());
+            MemberInfo member = MEMBERS.get(cleanIGN.toLowerCase().trim());
             if (member == null) return;
 
             MinecraftClient client = MinecraftClient.getInstance();
@@ -141,43 +140,39 @@ public abstract class EntityRendererMixin<T extends Entity> {
             Matrix4f matrix4f = matrices.peek().getPositionMatrix();
 
             String tierText = (member.tier != null && !member.tier.isEmpty()) ? " §e[" + member.tier + "]" : "";
-            String fullText = "§f" + playerName + tierText;
+            String fullText = "§f" + cleanIGN + tierText;
 
             float textWidth = textRenderer.getWidth(fullText);
             float iconSize = 9.0F;
             float spacing = 2.5F;
 
+            // Role / PvP Check (Supports both CPvP, SPvP, crystal, sword)
             Identifier pvpIcon = null;
-            if (member.pvpType != null) {
-                if (member.pvpType.toLowerCase().contains("sword")) pvpIcon = SWORD_ICON;
-                else if (member.pvpType.toLowerCase().contains("crystal")) pvpIcon = CRYSTAL_ICON;
-            }
-
-            Identifier roleIcon = null;
-            if (member.role != null) {
-                if (member.role.toLowerCase().contains("builder")) roleIcon = BUILDER_ICON;
-                else if (member.role.toLowerCase().contains("grinder")) roleIcon = GRINDER_ICON;
+            String roleVal = (member.role != null ? member.role : member.pvpType);
+            if (roleVal != null) {
+                String r = roleVal.toLowerCase();
+                if (r.contains("crystal") || r.contains("cpvp")) pvpIcon = CRYSTAL_ICON;
+                else if (r.contains("sword") || r.contains("spvp")) pvpIcon = SWORD_ICON;
+                else if (r.contains("builder")) pvpIcon = BUILDER_ICON;
+                else if (r.contains("grinder")) pvpIcon = GRINDER_ICON;
             }
 
             float totalWidth = iconSize + spacing + textWidth;
             if (pvpIcon != null) totalWidth += spacing + iconSize;
-            if (roleIcon != null) totalWidth += spacing + iconSize;
 
             float currentX = -totalWidth / 2.0F;
 
+            // VoidKnight Logo Render
             drawIcon(matrix4f, VK_ICON, currentX, -1.0F, iconSize);
             currentX += iconSize + spacing;
 
+            // Name + Tier Render
             textRenderer.draw(Text.literal(fullText), currentX, 0, 0xFFFFFF, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.SEE_THROUGH, 0x40000000, light);
             currentX += textWidth + spacing;
 
+            // PvP / Tier Icon Render
             if (pvpIcon != null) {
                 drawIcon(matrix4f, pvpIcon, currentX, -1.0F, iconSize);
-                currentX += iconSize + spacing;
-            }
-
-            if (roleIcon != null) {
-                drawIcon(matrix4f, roleIcon, currentX, -1.0F, iconSize);
             }
 
             matrices.pop();
