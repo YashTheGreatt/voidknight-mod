@@ -121,7 +121,6 @@ public abstract class EntityRendererMixin<T extends Entity> {
         if (distanceSq > 4096.0) return;
 
         matrices.push();
-        // 1.21.x compatible height positioning
         matrices.translate(0.0F, player.getStandingEyeHeight() + 0.5F, 0.0F);
         matrices.multiply(client.getEntityRenderDispatcher().getRotation());
         matrices.scale(-0.025F, -0.025F, 0.025F);
@@ -192,4 +191,5 @@ public abstract class EntityRendererMixin<T extends Entity> {
         String tier;
         String role;
     }
-}
+                         }
+                                 
