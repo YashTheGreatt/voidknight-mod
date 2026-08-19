@@ -98,15 +98,15 @@ public abstract class EntityRendererMixin<T extends Entity> {
         }
     }
 
-    // Minecraft 1.20 - 1.20.6 / Intermediate builds with tickDelta
+    // 1.21.1 Standard Signature (with tickDelta)
     @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
-    private void onRenderLabelLegacy(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
+    private void onRenderLabel121(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
         renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
     }
 
-    // Minecraft 1.21.x / Modern builds without tickDelta
+    // Modern / Snapshot Signature Fallback (without tickDelta)
     @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true, require = 0)
-    private void onRenderLabelModern(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
+    private void onRenderLabelFallback(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         renderCustomNametag(entity, matrices, vertexConsumers, light, ci);
     }
 
