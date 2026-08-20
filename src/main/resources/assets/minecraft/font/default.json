@@ -2,35 +2,35 @@
   "providers": [
     {
       "type": "bitmap",
-      "file": "voidknight:textures/gui/vk.png",
+      "file": "voidknight:gui/vk.png",
       "ascent": 8,
       "height": 9,
       "chars": ["\uE001"]
     },
     {
       "type": "bitmap",
-      "file": "voidknight:textures/gui/crystal.png",
+      "file": "voidknight:gui/crystal.png",
       "ascent": 8,
       "height": 9,
       "chars": ["\uE002"]
     },
     {
       "type": "bitmap",
-      "file": "voidknight:textures/gui/sword.png",
+      "file": "voidknight:gui/sword.png",
       "ascent": 8,
       "height": 9,
       "chars": ["\uE003"]
     },
     {
       "type": "bitmap",
-      "file": "voidknight:textures/gui/builder.png",
+      "file": "voidknight:gui/builder.png",
       "ascent": 8,
       "height": 9,
       "chars": ["\uE004"]
     },
     {
       "type": "bitmap",
-      "file": "voidknight:textures/gui/grinder.png",
+      "file": "voidknight:gui/grinder.png",
       "ascent": 8,
       "height": 9,
       "chars": ["\uE005"]
