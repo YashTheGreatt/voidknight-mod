@@ -9,8 +9,5 @@
     "client": [
       "com.voidknight.mod.VKMod"
     ]
-  },
-  "mixins": [
-    "voidknight.mixins.json"
-  ]
+  }
 }
