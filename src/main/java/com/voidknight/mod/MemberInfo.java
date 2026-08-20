@@ -1,7 +1,10 @@
-package com.voidknight.mod;
+package com.voidknight.mod.mixin;
 
 public class MemberInfo {
-    public String mode;
     public String role;
-    public int points;
+    public String mode;
+    public String type;
+
+    public MemberInfo() {
+    }
 }
