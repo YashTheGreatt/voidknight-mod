@@ -8,6 +8,6 @@ public class VKMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        System.out.println("[VoidKnight] Client initialized!");
+        System.out.println("[VoidKnight] Loaded successfully!");
     }
 }
