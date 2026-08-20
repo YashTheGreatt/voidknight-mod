@@ -1,17 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "voidknight",
-  "version": "1.0.0",
+  "version": "${version}",
   "name": "VoidKnight",
-  "description": "VoidKnight Clan",
-  "authors": [
-    "YashTheGreatt"
-  ],
-  "contact": {
-    "homepage": "https://voidknight.onrender.com"
-  },
-  "license": "MIT",
-  "icon": "assets/voidknight/icon.png",
+  "description": "VoidKnight Client Mod",
   "environment": "client",
   "entrypoints": {
     "client": [
@@ -20,11 +12,5 @@
   },
   "mixins": [
     "voidknight.mixins.json"
-  ],
-  "depends": {
-    "fabricloader": ">=0.15.0",
-    "minecraft": "~1.21",
-    "java": ">=21",
-    "fabric-api": "*"
-  }
+  ]
 }
