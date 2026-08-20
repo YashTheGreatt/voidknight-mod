@@ -8,6 +8,7 @@ import com.voidknight.mod.MemberInfo;
 
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.entity.PlayerEntityRenderer;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,7 +18,8 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Locale;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -26,24 +28,33 @@ import java.util.concurrent.TimeUnit;
 @Mixin(PlayerEntityRenderer.class)
 public abstract class EntityRendererMixin {
 
+    private static final String API_URL =
+            "https://voidknight.onrender.com/api/tiers";
+
+    private static final Gson GSON = new Gson();
+
     private static final ConcurrentHashMap<String, MemberInfo> MEMBERS =
             new ConcurrentHashMap<>();
 
     private static volatile boolean syncStarted = false;
 
     private static void startSync() {
-        if (syncStarted) return;
+        if (syncStarted) {
+            return;
+        }
 
         synchronized (EntityRendererMixin.class) {
-            if (syncStarted) return;
+            if (syncStarted) {
+                return;
+            }
 
             syncStarted = true;
 
             ScheduledExecutorService scheduler =
                     Executors.newSingleThreadScheduledExecutor(r -> {
-                        Thread t = new Thread(r, "VK-Async-Sync");
-                        t.setDaemon(true);
-                        return t;
+                        Thread thread = new Thread(r, "VoidKnight-API-Sync");
+                        thread.setDaemon(true);
+                        return thread;
                     });
 
             scheduler.scheduleAtFixedRate(
@@ -56,24 +67,34 @@ public abstract class EntityRendererMixin {
     }
 
     private static void fetchData() {
-        HttpURLConnection conn = null;
+        HttpURLConnection connection = null;
 
         try {
-            URL url = new URL(
-                    "https://voidknight.onrender.com/api/tiers"
+            URL url = new URL(API_URL);
+
+            connection = (HttpURLConnection) url.openConnection();
+
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty(
+                    "User-Agent",
+                    "VoidKnight-Mod/1.0"
             );
 
-            conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(3000);
-            conn.setReadTimeout(3000);
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
 
-            if (conn.getResponseCode() != 200) {
+            int responseCode = connection.getResponseCode();
+
+            if (responseCode != HttpURLConnection.HTTP_OK) {
                 return;
             }
 
-            try (InputStreamReader reader =
-                         new InputStreamReader(conn.getInputStream())) {
+            try (
+                    InputStreamReader reader = new InputStreamReader(
+                            connection.getInputStream(),
+                            StandardCharsets.UTF_8
+                    )
+            ) {
 
                 JsonElement root = JsonParser.parseReader(reader);
 
@@ -81,156 +102,174 @@ public abstract class EntityRendererMixin {
                     return;
                 }
 
-                Gson gson = new Gson();
-                ConcurrentHashMap<String, MemberInfo> temp =
+                JsonObject object = root.getAsJsonObject();
+
+                ConcurrentHashMap<String, MemberInfo> newMembers =
                         new ConcurrentHashMap<>();
 
-                JsonObject obj = root.getAsJsonObject();
+                for (Map.Entry<String, JsonElement> entry
+                        : object.entrySet()) {
 
-                for (String key : obj.keySet()) {
+                    if (entry.getValue() == null
+                            || !entry.getValue().isJsonObject()) {
+                        continue;
+                    }
+
                     MemberInfo member =
-                            gson.fromJson(
-                                    obj.get(key),
+                            GSON.fromJson(
+                                    entry.getValue(),
                                     MemberInfo.class
                             );
 
                     if (member != null) {
-                        temp.put(
-                                key.toLowerCase(Locale.ROOT).trim(),
+                        newMembers.put(
+                                entry.getKey()
+                                        .toLowerCase()
+                                        .trim(),
                                 member
                         );
                     }
                 }
 
-                // API ka latest data replace karo.
                 MEMBERS.clear();
-                MEMBERS.putAll(temp);
+                MEMBERS.putAll(newMembers);
             }
 
-        } catch (Throwable ignored) {
-            // API fail hone par game crash nahi hoga.
-            // Previous data rahega.
+        } catch (Exception ignored) {
+
         } finally {
-            if (conn != null) {
-                conn.disconnect();
+            if (connection != null) {
+                connection.disconnect();
             }
         }
     }
 
+    /*
+     * Minecraft 1.21.x target.
+     *
+     * IMPORTANT:
+     * Old fallback with only "...;I)V" was removed because
+     * your build log showed that method does not exist.
+     */
     @ModifyVariable(
-            method = "renderLabelIfPresent(Lnet/minecraft/client/network/AbstractClientPlayerEntity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V",
+            method =
+                    "renderLabelIfPresent("
+                    + "Lnet/minecraft/client/network/AbstractClientPlayerEntity;"
+                    + "Lnet/minecraft/text/Text;"
+                    + "Lnet/minecraft/client/util/math/MatrixStack;"
+                    + "Lnet/minecraft/client/render/VertexConsumerProvider;"
+                    + "IF)V",
             at = @At("HEAD"),
             argsOnly = true,
             require = 0
     )
-    private Text modifyNametagText121(
+    private Text voidknight$modifyNametag(
             Text originalText,
             AbstractClientPlayerEntity player
     ) {
+
         return buildCustomText(originalText, player);
     }
 
-    @ModifyVariable(
-            method = "renderLabelIfPresent(Lnet/minecraft/client/network/AbstractClientPlayerEntity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
-            at = @At("HEAD"),
-            argsOnly = true,
-            require = 0
-    )
-    private Text modifyNametagTextFallback(
+    private static Text buildCustomText(
             Text originalText,
             AbstractClientPlayerEntity player
     ) {
-        return buildCustomText(originalText, player);
-    }
 
-    private Text buildCustomText(
-            Text originalText,
-            AbstractClientPlayerEntity player
-    ) {
         startSync();
 
-        if (player == null) {
+        if (originalText == null || player == null) {
             return originalText;
         }
+
+        String ign;
 
         try {
-            // Server/LuckPerms ka MEMBER text use nahi karenge.
-            // Direct Minecraft IGN lenge.
-            String ign = player.getGameProfile().getName();
-
-            if (ign == null || ign.isBlank()) {
-                return originalText;
-            }
-
-            MemberInfo member = MEMBERS.get(
-                    ign.toLowerCase(Locale.ROOT).trim()
-            );
-
-            // API mein member nahi hai → normal server nametag.
-            if (member == null) {
-                return originalText;
-            }
-
-            String role = member.role;
-
-            if (role == null || role.isBlank()) {
-                role = member.mode;
-            }
-
-            if (role == null || role.isBlank()) {
-                return Text.literal(ign);
-            }
-
-            role = role.toUpperCase(Locale.ROOT).trim();
-
-            // IMPORTANT:
-            // \uE001 = VKVV logo
-            // \uE002 = Crystal / CPVPER
-            // \uE003 = Sword
-            // \uE004 = Builder
-            // \uE005 = Grinder
-            String vkLogo = "\uE001 ";
-            String roleIcon;
-
-            switch (role) {
-                case "CPVPER":
-                case "CPVP":
-                case "CRYSTAL":
-                    role = "CPVPER";
-                    roleIcon = "\uE002";
-                    break;
-
-                case "SWORD":
-                case "SWORDPVP":
-                    role = "SWORD";
-                    roleIcon = "\uE003";
-                    break;
-
-                case "BUILDER":
-                    roleIcon = "\uE004";
-                    break;
-
-                case "GRINDER":
-                    roleIcon = "\uE005";
-                    break;
-
-                default:
-                    return Text.literal(
-                            vkLogo + ign + " " + role
-                    );
-            }
-
-            return Text.literal(
-                    vkLogo
-                            + ign
-                            + " "
-                            + roleIcon
-                            + " "
-                            + role
-            );
-
-        } catch (Throwable ignored) {
+            ign = player.getGameProfile().getName();
+        } catch (Exception ignored) {
             return originalText;
         }
+
+        if (ign == null || ign.isBlank()) {
+            return originalText;
+        }
+
+        MemberInfo member =
+                MEMBERS.get(ign.toLowerCase().trim());
+
+        /*
+         * Player website/API roster me nahi hai.
+         * Normal nametag bilkul unchanged.
+         */
+        if (member == null) {
+            return originalText;
+        }
+
+        /*
+         * Font image characters
+         *
+         * E001 = VK logo
+         * E002 = Crystal / CPvP
+         * E003 = Sword
+         * E004 = Builder
+         * E005 = Grinder
+         */
+        String vkLogo = "\uE001 ";
+        String roleIcon = "";
+        String roleName = "";
+
+        if (member.role != null) {
+
+            String role =
+                    member.role
+                            .trim()
+                            .toLowerCase();
+
+            if (
+                    role.contains("cpvp")
+                            || role.contains("crystal")
+            ) {
+                roleIcon = " \uE002";
+                roleName = " CPvPer";
+
+            } else if (
+                    role.contains("sword")
+                            || role.contains("spvp")
+            ) {
+                roleIcon = " \uE003";
+                roleName = " Sword";
+
+            } else if (role.contains("builder")) {
+                roleIcon = " \uE004";
+                roleName = " Builder";
+
+            } else if (role.contains("grinder")) {
+                roleIcon = " \uE005";
+                roleName = " Grinder";
+
+            } else {
+                roleName = " " + member.role;
+            }
+        }
+
+        MutableText result = Text.literal(vkLogo);
+
+        /*
+         * VK logo + username
+         */
+        result.append(originalText);
+
+        /*
+         * Role icon + role
+         */
+        if (!roleIcon.isEmpty()) {
+            result.append(Text.literal(roleIcon));
+        }
+
+        if (!roleName.isEmpty()) {
+            result.append(Text.literal(roleName));
+        }
+
+        return result;
     }
 }
