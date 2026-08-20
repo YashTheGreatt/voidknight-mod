@@ -5,10 +5,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.voidknight.mod.MemberInfo;
+
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.entity.PlayerEntityRenderer;
-import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -16,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -34,6 +36,7 @@ public abstract class EntityRendererMixin {
 
         synchronized (EntityRendererMixin.class) {
             if (syncStarted) return;
+
             syncStarted = true;
 
             ScheduledExecutorService scheduler =
@@ -62,10 +65,6 @@ public abstract class EntityRendererMixin {
 
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
-            conn.setRequestProperty(
-                    "User-Agent",
-                    "VoidKnightMod/1.0"
-            );
             conn.setConnectTimeout(3000);
             conn.setReadTimeout(3000);
 
@@ -77,38 +76,40 @@ public abstract class EntityRendererMixin {
                          new InputStreamReader(conn.getInputStream())) {
 
                 JsonElement root = JsonParser.parseReader(reader);
-                Gson gson = new Gson();
 
+                if (root == null || !root.isJsonObject()) {
+                    return;
+                }
+
+                Gson gson = new Gson();
                 ConcurrentHashMap<String, MemberInfo> temp =
                         new ConcurrentHashMap<>();
 
-                if (root != null && root.isJsonObject()) {
-                    JsonObject obj = root.getAsJsonObject();
+                JsonObject obj = root.getAsJsonObject();
 
-                    for (String key : obj.keySet()) {
-                        MemberInfo member =
-                                gson.fromJson(
-                                        obj.get(key),
-                                        MemberInfo.class
-                                );
-
-                        if (member != null) {
-                            temp.put(
-                                    key.toLowerCase().trim(),
-                                    member
+                for (String key : obj.keySet()) {
+                    MemberInfo member =
+                            gson.fromJson(
+                                    obj.get(key),
+                                    MemberInfo.class
                             );
-                        }
+
+                    if (member != null) {
+                        temp.put(
+                                key.toLowerCase(Locale.ROOT).trim(),
+                                member
+                        );
                     }
                 }
 
-                if (!temp.isEmpty()) {
-                    MEMBERS.clear();
-                    MEMBERS.putAll(temp);
-                }
+                // API ka latest data replace karo.
+                MEMBERS.clear();
+                MEMBERS.putAll(temp);
             }
 
         } catch (Throwable ignored) {
-            // API unavailable/error: keep previous data
+            // API fail hone par game crash nahi hoga.
+            // Previous data rahega.
         } finally {
             if (conn != null) {
                 conn.disconnect();
@@ -146,78 +147,87 @@ public abstract class EntityRendererMixin {
             Text originalText,
             AbstractClientPlayerEntity player
     ) {
-        if (!syncStarted) {
-            startSync();
-        }
+        startSync();
 
-        if (player == null || MEMBERS.isEmpty()) {
+        if (player == null) {
             return originalText;
         }
 
         try {
-            String cleanIGN =
-                    player.getGameProfile().getName();
+            // Server/LuckPerms ka MEMBER text use nahi karenge.
+            // Direct Minecraft IGN lenge.
+            String ign = player.getGameProfile().getName();
 
-            if (cleanIGN == null || cleanIGN.isEmpty()) {
+            if (ign == null || ign.isBlank()) {
                 return originalText;
             }
 
-            MemberInfo member =
-                    MEMBERS.get(cleanIGN.toLowerCase().trim());
+            MemberInfo member = MEMBERS.get(
+                    ign.toLowerCase(Locale.ROOT).trim()
+            );
 
+            // API mein member nahi hai → normal server nametag.
             if (member == null) {
                 return originalText;
             }
 
-            String vkIconChar = "\uE001 ";
-            String modeIconChar = "";
+            String role = member.role;
 
-            String modeVal =
-                    member.mode != null
-                            ? member.mode
-                            : member.role;
-
-            if (modeVal != null) {
-                String m = modeVal.toLowerCase();
-
-                if (m.contains("cpvp") ||
-                        m.contains("crystal")) {
-
-                    modeIconChar = " \uE002";
-
-                } else if (m.contains("spvp") ||
-                        m.contains("sword")) {
-
-                    modeIconChar = " \uE003";
-
-                } else if (m.contains("build")) {
-
-                    modeIconChar = " \uE004";
-
-                } else if (m.contains("grind")) {
-
-                    modeIconChar = " \uE005";
-                }
+            if (role == null || role.isBlank()) {
+                role = member.mode;
             }
 
-            String tierText =
-                    (member.tier != null &&
-                     !member.tier.isEmpty())
-                            ? " §e[" + member.tier + "]"
-                            : "";
+            if (role == null || role.isBlank()) {
+                return Text.literal(ign);
+            }
 
-            MutableText newText =
-                    Text.literal(vkIconChar);
+            role = role.toUpperCase(Locale.ROOT).trim();
 
-            newText.append(originalText);
+            // IMPORTANT:
+            // \uE001 = VKVV logo
+            // \uE002 = Crystal / CPVPER
+            // \uE003 = Sword
+            // \uE004 = Builder
+            // \uE005 = Grinder
+            String vkLogo = "\uE001 ";
+            String roleIcon;
 
-            newText.append(
-                    Text.literal(
-                            tierText + modeIconChar
-                    )
+            switch (role) {
+                case "CPVPER":
+                case "CPVP":
+                case "CRYSTAL":
+                    role = "CPVPER";
+                    roleIcon = "\uE002";
+                    break;
+
+                case "SWORD":
+                case "SWORDPVP":
+                    role = "SWORD";
+                    roleIcon = "\uE003";
+                    break;
+
+                case "BUILDER":
+                    roleIcon = "\uE004";
+                    break;
+
+                case "GRINDER":
+                    roleIcon = "\uE005";
+                    break;
+
+                default:
+                    return Text.literal(
+                            vkLogo + ign + " " + role
+                    );
+            }
+
+            return Text.literal(
+                    vkLogo
+                            + ign
+                            + " "
+                            + roleIcon
+                            + " "
+                            + role
             );
-
-            return newText;
 
         } catch (Throwable ignored) {
             return originalText;
