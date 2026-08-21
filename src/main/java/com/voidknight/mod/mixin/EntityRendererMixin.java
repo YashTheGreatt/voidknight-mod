@@ -38,84 +38,46 @@ public abstract class EntityRendererMixin {
 
         String role = member.getRole();
 
-        if (role == null || role.isBlank()) {
+        if (role == null || role.isEmpty()) {
             return;
         }
 
-        String roleIcon = getRoleIcon(member.type, role);
-
         MutableComponent nameTag = Component.empty();
 
-        // VK ICON
+        // Main VoidKnight icon
         nameTag.append(Component.literal("\uE001"));
 
-        // |
         nameTag.append(Component.literal(" | ").withStyle(ChatFormatting.GRAY));
 
-        // USERNAME
+        // Player name
         nameTag.append(createGradient(playerName));
 
-        // |
         nameTag.append(Component.literal(" | ").withStyle(ChatFormatting.GRAY));
 
-        // ROLE ICON
+        // Role icon
+        String roleIcon = getRoleIcon(member.type);
         if (!roleIcon.isEmpty()) {
             nameTag.append(Component.literal(roleIcon));
             nameTag.append(Component.literal(" "));
         }
 
-        // ROLE
+        // Role text
         nameTag.append(createGradient(role));
 
         cir.setReturnValue(nameTag);
     }
 
-    private String getRoleIcon(String type, String role) {
-        String value = "";
-
-        if (type != null && !type.isBlank()) {
-            value = type.toLowerCase();
-        } else if (role != null) {
-            value = role.toLowerCase();
+    private String getRoleIcon(String type) {
+        if (type == null) {
+            return "";
         }
 
-        // TYPE BASED ICONS
-        switch (value) {
-            case "combat":
-                return "\uE002";
-
-            case "crystal":
-                return "\uE003";
-
-            case "builder":
-                return "\uE004";
-
-            case "grinder":
-                return "\uE005";
-        }
-
-        // ROLE NAME FALLBACK
-        if (role != null) {
-            String roleLower = role.toLowerCase();
-
-            if (roleLower.contains("pvp")) {
-                return "\uE002";
-            }
-
-            if (roleLower.contains("crystal")) {
-                return "\uE003";
-            }
-
-            if (roleLower.contains("builder")) {
-                return "\uE004";
-            }
-
-            if (roleLower.contains("grinder")) {
-                return "\uE005";
-            }
-        }
-
-        return "";
+        return switch (type.toLowerCase()) {
+            case "combat", "cpvper", "pvp", "sword" -> "\uE002";
+            case "crystal" -> "\uE003";
+            case "grinder", "grinding" -> "\uE005";
+            default -> "";
+        };
     }
 
     private MutableComponent createGradient(String text) {
