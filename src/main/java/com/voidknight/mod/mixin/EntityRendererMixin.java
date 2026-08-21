@@ -16,7 +16,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
 
-```
 @Inject(
         method = "getNameTag",
         at = @At("RETURN"),
@@ -45,24 +44,12 @@ private void voidknight$changeNameTag(
 
     MutableComponent nameTag = Component.empty();
 
-    // VK icon
     nameTag.append(Component.literal("\uE001"));
-
-    // |
     nameTag.append(Component.literal(" | ").withStyle(ChatFormatting.GRAY));
-
-    // Username
     nameTag.append(createGradient(playerName));
-
-    // |
     nameTag.append(Component.literal(" | ").withStyle(ChatFormatting.GRAY));
-
-    // Role icon
     nameTag.append(Component.literal(getRoleIcon(member.type)));
-
     nameTag.append(Component.literal(" "));
-
-    // Role — API ki original capitalization preserve hogi
     nameTag.append(createGradient(role));
 
     cir.setReturnValue(nameTag);
@@ -114,6 +101,5 @@ private MutableComponent createGradient(String text) {
 
     return result;
 }
-```
 
 }
