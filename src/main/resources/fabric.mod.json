@@ -10,10 +10,7 @@
       "com.voidknight.mod.VKMod"
     ]
   },
-  "depends": {
-    "fabricloader": ">=0.18.1",
-    "minecraft": "1.21.11",
-    "java": ">=21",
-    "fabric-api": "*"
-  }
+  "mixins": [
+    "voidknight.mixins.json"
+  ]
 }
