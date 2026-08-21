@@ -14,58 +14,54 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
 
-```
-@Inject(
-        method = "getNameTag",
-        at = @At("RETURN"),
-        cancellable = true
-)
-private void voidknight$changeNameTag(
-        Entity entity,
-        CallbackInfoReturnable<Component> cir
-) {
-    if (!(entity instanceof Player player)) {
-        return;
+    @Inject(
+            method = "getNameTag",
+            at = @At("RETURN"),
+            cancellable = true
+    )
+    private void voidknight$changeNameTag(
+            Entity entity,
+            CallbackInfoReturnable<Component> cir
+    ) {
+        if (!(entity instanceof Player player)) {
+            return;
+        }
+
+        String playerName = player.getName().getString();
+        MemberInfo member = TierManager.getMember(playerName);
+
+        if (member == null) {
+            return;
+        }
+
+        String role = member.getRole();
+
+        if (role.isEmpty()) {
+            return;
+        }
+
+        String roleIcon = getRoleIcon(member.type);
+
+        cir.setReturnValue(Component.literal(
+                "\uE001 " +
+                playerName +
+                " " +
+                roleIcon +
+                " [" + role + "]"
+        ));
     }
 
-    String playerName = player.getName().getString();
-    MemberInfo member = TierManager.getMember(playerName);
+    private String getRoleIcon(String type) {
+        if (type == null) {
+            return "";
+        }
 
-    // Player API mein nahi hai, to normal nametag unchanged rahega.
-    if (member == null) {
-        return;
+        return switch (type.toLowerCase()) {
+            case "combat" -> "\uE002";
+            case "crystal" -> "\uE003";
+            case "builder" -> "\uE004";
+            case "grinder" -> "\uE005";
+            default -> "";
+        };
     }
-
-    String role = member.getRole();
-
-    if (role.isEmpty()) {
-        return;
-    }
-
-    String roleIcon = getRoleIcon(member.type);
-
-    cir.setReturnValue(Component.literal(
-            "\uE001 " +
-            playerName +
-            " " +
-            roleIcon +
-            " [" + role + "]"
-    ));
-}
-
-private String getRoleIcon(String type) {
-    if (type == null) {
-        return "";
-    }
-
-    return switch (type.toLowerCase()) {
-        case "combat" -> "\uE002";
-        case "crystal" -> "\uE003";
-        case "builder" -> "\uE004";
-        case "grinder" -> "\uE005";
-        default -> "";
-    };
-}
-```
-
 }
