@@ -1,11 +1,9 @@
 {
-  "required": false,
+  "required": true,
   "package": "com.voidknight.mod.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": [
-    "EntityRendererMixin"
-  ],
+  "client": [],
   "injectors": {
-    "defaultRequire": 0
+    "defaultRequire": 1
   }
 }
