@@ -1,51 +1,40 @@
-# default.json
-
 {
-"providers": [
-{
-"type": "bitmap",
-"file": "voidknight:gui/vkvv.png",
-"height": 16,
-"ascent": 12,
-"chars": [
-"\uE001"
-]
-},
-{
-"type": "bitmap",
-"file": "voidknight:gui/sword.png",
-"height": 16,
-"ascent": 12,
-"chars": [
-"\uE002"
-]
-},
-{
-"type": "bitmap",
-"file": "voidknight:gui/crystal.png",
-"height": 16,
-"ascent": 12,
-"chars": [
-"\uE003"
-]
-},
-{
-"type": "bitmap",
-"file": "voidknight:gui/builder.png",
-"height": 16,
-"ascent": 12,
-"chars": [
-"\uE004"
-]
-},
-{
-"type": "bitmap",
-"file": "voidknight:gui/grinder.png",
-"height": 16,
-"ascent": 12,
-"chars": [
-"\uE005"
-]
-}
-]
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "voidknight:gui/vkvv.png",
+      "height": 16,
+      "ascent": 12,
+      "chars": [
+        "\uE001"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "voidknight:gui/sword.png",
+      "height": 16,
+      "ascent": 12,
+      "chars": [
+        "\uE002"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "voidknight:gui/crystal.png",
+      "height": 16,
+      "ascent": 12,
+      "chars": [
+        "\uE003"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "voidknight:gui/grinder.png",
+      "height": 16,
+      "ascent": 12,
+      "chars": [
+        "\uE005"
+      ]
+    }
+  ]
 }
