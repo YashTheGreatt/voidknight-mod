@@ -1,3 +1,6 @@
+# EntityRendererMixin.java
+
+```java
 package com.voidknight.mod.mixin;
 
 import com.voidknight.mod.MemberInfo;
@@ -27,10 +30,11 @@ public abstract class EntityRendererMixin {
             return;
         }
 
-        String playerName = player.getGameProfile().getName();
+        String playerName = player.getName().getString();
+
         MemberInfo member = TierManager.getMember(playerName);
 
-        // Player API mein nahi hai = normal nametag
+        // Player API mein nahi hai → normal nametag unchanged
         if (member == null) {
             return;
         }
@@ -66,3 +70,4 @@ public abstract class EntityRendererMixin {
         };
     }
 }
+```
