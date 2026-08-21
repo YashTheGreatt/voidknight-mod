@@ -7,5 +7,7 @@ public class VKMod implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         System.out.println("[VoidKnight] VoidKnight loaded successfully!");
+
+        TierManager.refreshIfNeeded();
     }
 }
