@@ -20,14 +20,13 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.8
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Make Gradle Wrapper Executable
-        run: chmod +x gradlew
+        with:
+          gradle-version: "8.8"
 
       - name: Clean Build
-        run: ./gradlew clean build --no-daemon --stacktrace
+        run: gradle clean build --no-daemon --stacktrace
 
       - name: Upload Mod Jar File
         if: success()
