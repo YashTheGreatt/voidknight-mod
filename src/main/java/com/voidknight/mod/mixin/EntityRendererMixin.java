@@ -1,6 +1,3 @@
-# EntityRendererMixin.java
-
-```java
 package com.voidknight.mod.mixin;
 
 import com.voidknight.mod.MemberInfo;
@@ -17,57 +14,58 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
 
-    @Inject(
-            method = "getNameTag",
-            at = @At("RETURN"),
-            cancellable = true
-    )
-    private void voidknight$changeNameTag(
-            Entity entity,
-            CallbackInfoReturnable<Component> cir
-    ) {
-        if (!(entity instanceof Player player)) {
-            return;
-        }
-
-        String playerName = player.getName().getString();
-
-        MemberInfo member = TierManager.getMember(playerName);
-
-        // Player API mein nahi hai → normal nametag unchanged
-        if (member == null) {
-            return;
-        }
-
-        String role = member.getRole();
-
-        if (role.isEmpty()) {
-            return;
-        }
-
-        String roleIcon = getRoleIcon(member.type);
-
-        cir.setReturnValue(Component.literal(
-                "\uE001 " +
-                playerName +
-                " " +
-                roleIcon +
-                " [" + role + "]"
-        ));
+```
+@Inject(
+        method = "getNameTag",
+        at = @At("RETURN"),
+        cancellable = true
+)
+private void voidknight$changeNameTag(
+        Entity entity,
+        CallbackInfoReturnable<Component> cir
+) {
+    if (!(entity instanceof Player player)) {
+        return;
     }
 
-    private String getRoleIcon(String type) {
-        if (type == null) {
-            return "";
-        }
+    String playerName = player.getName().getString();
+    MemberInfo member = TierManager.getMember(playerName);
 
-        return switch (type.toLowerCase()) {
-            case "combat" -> "\uE002";
-            case "crystal" -> "\uE003";
-            case "builder" -> "\uE004";
-            case "grinder" -> "\uE005";
-            default -> "";
-        };
+    // Player API mein nahi hai, to normal nametag unchanged rahega.
+    if (member == null) {
+        return;
     }
+
+    String role = member.getRole();
+
+    if (role.isEmpty()) {
+        return;
+    }
+
+    String roleIcon = getRoleIcon(member.type);
+
+    cir.setReturnValue(Component.literal(
+            "\uE001 " +
+            playerName +
+            " " +
+            roleIcon +
+            " [" + role + "]"
+    ));
+}
+
+private String getRoleIcon(String type) {
+    if (type == null) {
+        return "";
+    }
+
+    return switch (type.toLowerCase()) {
+        case "combat" -> "\uE002";
+        case "crystal" -> "\uE003";
+        case "builder" -> "\uE004";
+        case "grinder" -> "\uE005";
+        default -> "";
+    };
 }
 ```
+
+}
