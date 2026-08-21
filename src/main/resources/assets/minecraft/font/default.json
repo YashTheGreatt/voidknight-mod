@@ -1,0 +1,69 @@
+# default.json
+
+```json
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "voidknight:gui/vkvv.png",
+      "ascent": 8,
+      "height": 8,
+      "chars": [
+        "\uE001"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "voidknight:gui/sword.png",
+      "ascent": 8,
+      "height": 8,
+      "chars": [
+        "\uE002"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "voidknight:gui/crystal.png",
+      "ascent": 8,
+      "height": 8,
+      "chars": [
+        "\uE003"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "voidknight:gui/builder.png",
+      "ascent": 8,
+      "height": 8,
+      "chars": [
+        "\uE004"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "voidknight:gui/grinder.png",
+      "ascent": 8,
+      "height": 8,
+      "chars": [
+        "\uE005"
+      ]
+    }
+  ]
+}
+```
+
+Save exactly here:
+
+```text
+src/main/resources/assets/minecraft/font/default.json
+```
+
+Then hum Java/mixin mein use karenge:
+
+```java
+"\uE001" + " " + playerName + " " + "\uE002" + " [" + role + "]"
+```
+
+Result:
+
+**VK icon + OriginalName + RoleIcon + [ROLE]**
