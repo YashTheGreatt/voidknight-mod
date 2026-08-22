@@ -25,11 +25,14 @@ public abstract class EntityRendererMixin {
             Entity entity,
             CallbackInfoReturnable<Component> cir
     ) {
+        // Only change player nametags
         if (!(entity instanceof Player player)) {
             return;
         }
 
         String playerName = player.getName().getString();
+
+        // Get member information
         MemberInfo member = TierManager.getMember(playerName);
 
         if (member == null) {
@@ -38,55 +41,117 @@ public abstract class EntityRendererMixin {
 
         String role = member.getRole();
 
-        if (role == null || role.isEmpty()) {
+        if (role == null || role.trim().isEmpty()) {
             return;
         }
 
+        // Create final nametag
         MutableComponent nameTag = Component.empty();
 
-        // Main VoidKnight icon
+        // Main VoidKnight icon: E001
         nameTag.append(Component.literal("\uE001"));
 
-        nameTag.append(Component.literal(" | ").withStyle(ChatFormatting.GRAY));
+        // Separator
+        nameTag.append(
+                Component.literal(" | ")
+                        .withStyle(ChatFormatting.GRAY)
+        );
 
-        // Player name
+        // Player name with gradient
         nameTag.append(createGradient(playerName));
 
-        nameTag.append(Component.literal(" | ").withStyle(ChatFormatting.GRAY));
+        // Separator
+        nameTag.append(
+                Component.literal(" | ")
+                        .withStyle(ChatFormatting.GRAY)
+        );
 
-        // Role icon
+        // Get role icon
         String roleIcon = getRoleIcon(member.type);
+
+        // Add role icon if available
         if (!roleIcon.isEmpty()) {
             nameTag.append(Component.literal(roleIcon));
             nameTag.append(Component.literal(" "));
         }
 
-        // Role text
+        // Role name with gradient
         nameTag.append(createGradient(role));
 
+        // Set the new nametag
         cir.setReturnValue(nameTag);
     }
 
+    /**
+     * Returns the correct custom font character
+     * based on the member type.
+     *
+     * E002 = Sword
+     * E003 = Crystal
+     * E005 = Grinder
+     */
     private String getRoleIcon(String type) {
-        if (type == null) {
+
+        if (type == null || type.trim().isEmpty()) {
             return "";
         }
 
-        return switch (type.toLowerCase()) {
-            case "combat", "cpvper", "pvp", "sword" -> "\uE002";
-            case "crystal" -> "\uE003";
-            case "grinder", "grinding" -> "\uE005";
-            default -> "";
-        };
+        // Normalize the type so different formats work:
+        // "Crystal", "CRYSTAL", "crystal pvp",
+        // "crystal_pvp", etc.
+        String normalized = type
+                .trim()
+                .toLowerCase()
+                .replace(" ", "")
+                .replace("-", "")
+                .replace("_", "");
+
+        // Crystal icon
+        if (normalized.contains("crystal")
+                || normalized.equals("cpvp")
+                || normalized.equals("crystalpvp")) {
+
+            return "\uE003";
+        }
+
+        // Grinder icon
+        if (normalized.contains("grind")
+                || normalized.contains("grinder")
+                || normalized.contains("grinding")) {
+
+            return "\uE005";
+        }
+
+        // Sword / Combat icon
+        if (normalized.contains("combat")
+                || normalized.contains("sword")
+                || normalized.contains("pvp")
+                || normalized.contains("cpvper")) {
+
+            return "\uE002";
+        }
+
+        // No matching icon
+        return "";
     }
 
+    /**
+     * Creates a purple to pink gradient.
+     */
     private MutableComponent createGradient(String text) {
+
         MutableComponent result = Component.empty();
 
+        if (text == null || text.isEmpty()) {
+            return result;
+        }
+
+        // Start color: Purple
         int startRed = 209;
         int startGreen = 0;
         int startBlue = 255;
 
+        // End color: Pink
         int endRed = 255;
         int endGreen = 77;
         int endBlue = 255;
@@ -94,18 +159,30 @@ public abstract class EntityRendererMixin {
         int length = Math.max(text.length() - 1, 1);
 
         for (int i = 0; i < text.length(); i++) {
+
             float progress = (float) i / length;
 
-            int red = (int) (startRed + (endRed - startRed) * progress);
-            int green = (int) (startGreen + (endGreen - startGreen) * progress);
-            int blue = (int) (startBlue + (endBlue - startBlue) * progress);
+            int red = (int) (
+                    startRed + (endRed - startRed) * progress
+            );
+
+            int green = (int) (
+                    startGreen + (endGreen - startGreen) * progress
+            );
+
+            int blue = (int) (
+                    startBlue + (endBlue - startBlue) * progress
+            );
 
             int color = (red << 16) | (green << 8) | blue;
 
             result.append(
-                    Component.literal(String.valueOf(text.charAt(i)))
+                    Component.literal(
+                                    String.valueOf(text.charAt(i))
+                            )
                             .withStyle(style ->
-                                    style.withColor(color).withBold(true)
+                                    style.withColor(color)
+                                            .withBold(true)
                             )
             );
         }
